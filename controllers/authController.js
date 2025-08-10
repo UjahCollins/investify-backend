@@ -1,14 +1,14 @@
+// controllers/authController.js
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const sendEmail = require('../utils/sendEmail');
 
 const validatePassword = (password) => {
   const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
   return regex.test(password);
 };
 
+// 📌 Register User
 exports.register = async (req, res) => {
   const {
     username, email, country, phone, password, confirmPassword,
@@ -41,27 +41,20 @@ exports.register = async (req, res) => {
     const newUser = new User({
       username, email, country, phone,
       password: hashedPassword,
-      firstName, lastName, address, zipCode, city
+      firstName, lastName, address, zipCode, city,
+      verified: true // ✅ Mark as verified since no email verification
     });
 
-    const token = crypto.randomBytes(32).toString('hex');
-    newUser.verificationToken = token;
     await newUser.save();
 
-    const verificationLink = `${process.env.BASE_URL}/api/auth/verify/${token}`;
-    await sendEmail(email, 'Verify Your Email', `
-      <h2>Email Verification</h2>
-      <p>Click the link to verify your email:</p>
-      <a href="${verificationLink}">${verificationLink}</a>
-    `);
-
-    return res.status(201).json({ message: 'User registered. Check your email to verify.' });
+    return res.status(201).json({ message: 'User registered successfully' });
 
   } catch (error) {
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
+// 📌 Login User
 exports.login = async (req, res) => {
   const { usernameOrEmail, password } = req.body;
 
@@ -71,7 +64,6 @@ exports.login = async (req, res) => {
     });
 
     if (!user) return res.status(404).json({ message: 'User not found' });
-    if (!user.verified) return res.status(403).json({ message: 'Email not verified' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
@@ -91,5 +83,25 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// 📌 Check if Email Exists
+exports.checkEmail = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    if (user) {
+      return res.status(200).json({ exists: true, message: 'Email already exists' });
+    } else {
+      return res.status(200).json({ exists: false, message: 'Email is available' });
+    }
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
