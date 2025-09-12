@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import User from '../models/User.js';
+import upload from '../middlewares/uploads.js';
+
 const router = express.Router();
-const User = require('../models/User');
-const upload = require('../middlewares/uploads');
 
 router.post('/:userId/submit', upload.fields([
   { name: 'licenseFront', maxCount: 1 },
@@ -37,4 +38,4 @@ router.post('/:userId/submit', upload.fields([
   }
 });
 
-module.exports = router;
+export default router;   // ✅ ESM export

@@ -1,7 +1,7 @@
 // controllers/authController.js
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const validatePassword = (password) => {
   const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -9,7 +9,7 @@ const validatePassword = (password) => {
 };
 
 // 📌 Register User
-exports.register = async (req, res) => {
+export const register = async (req, res) => {
   const {
     username, email, country, phone, password, confirmPassword,
     firstName, lastName, address, zipCode, city
@@ -39,15 +39,31 @@ exports.register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const newUser = new User({
-      username, email, country, phone,
+      username,
+      email,
+      country,
+      phone,
       password: hashedPassword,
-      firstName, lastName, address, zipCode, city,
-      verified: true // ✅ Mark as verified since no email verification
+      firstName,
+      lastName,
+      address,
+      zipCode,
+      city,
+      verified: true,
+      admin: false  // ✅ default false
     });
 
     await newUser.save();
 
-    return res.status(201).json({ message: 'User registered successfully' });
+    return res.status(201).json({ 
+      message: 'User registered successfully',
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        admin: newUser.admin
+      }
+    });
 
   } catch (error) {
     return res.status(500).json({ message: 'Server error', error: error.message });
@@ -55,7 +71,7 @@ exports.register = async (req, res) => {
 };
 
 // 📌 Login User
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   const { usernameOrEmail, password } = req.body;
 
   try {
@@ -77,7 +93,8 @@ exports.login = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        kycStatus: user.kyc?.status || 'not submitted'
+        kycStatus: user.kyc?.status || 'not submitted',
+        admin: user.admin || false,
       }
     });
 
@@ -87,7 +104,7 @@ exports.login = async (req, res) => {
 };
 
 // 📌 Check if Email Exists
-exports.checkEmail = async (req, res) => {
+export const checkEmail = async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
@@ -103,5 +120,29 @@ exports.checkEmail = async (req, res) => {
     }
   } catch (error) {
     return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// 📌 Check if username or email exists
+export const checkUsernameEmail = async (req, res) => {
+  try {
+    const { username, email } = req.body;
+
+    if (!username || !email) {
+      return res.status(400).json({ message: 'Username and email are required' });
+    }
+
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }]
+    });
+
+    if (existingUser) {
+      let takenField = existingUser.email === email ? 'email' : 'username';
+      return res.status(409).json({ message: `${takenField} already exists` });
+    }
+
+    res.status(200).json({ message: 'Available' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
