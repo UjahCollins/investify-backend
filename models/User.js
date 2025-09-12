@@ -17,6 +17,9 @@ const userSchema = new mongoose.Schema({
   verified: { type: Boolean, default: false },
   verificationToken: String,
 
+  // ✅ Referral code - unique but nullable
+  referralCode: { type: String, unique: true, sparse: true },
+
   // Wallet and dashboard tracking
   balance: { type: Number, default: 0 },
   interestWallet: { type: Number, default: 0 },
