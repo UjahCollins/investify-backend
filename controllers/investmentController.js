@@ -23,7 +23,56 @@ const calculateInvestmentProgress = (investment) => {
   return { progress, earnedSoFar };
 };
 
+// // Create Investment
+// export const createInvestment = async (req, res) => {
+//   try {
+//     const { userId, plan, amount } = req.body;
+
+//     const selectedPlan = investmentPlans[plan];
+//     if (!selectedPlan) {
+//       return res.status(400).json({ message: "Invalid plan selected" });
+//     }
+
+//     if (amount < selectedPlan.minDeposit || amount > selectedPlan.maxDeposit) {
+//       return res.status(400).json({ message: "Amount not within plan limits" });
+//     }
+
+//     const user = await User.findById(userId);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     // add to pendingDeposit
+//     user.pendingDeposit += amount;
+
+//     // prepare investment but mark as "pending"
+//     const endDate = new Date();
+//     endDate.setDate(endDate.getDate() + selectedPlan.durationDays);
+
+//     const newInvestment = {
+//       plan,
+//       amount,
+//       startDate: new Date(),
+//       endDate,
+//       dailyInterest: selectedPlan.dailyInterestPercent,
+//       totalReturn: (amount * selectedPlan.totalInterestPercent) / 100,
+//       progress: 0,
+//       status: "pending" // 🆕 field
+//     };
+
+//     user.investments.push(newInvestment);
+//     await user.save();
+
+//     res.status(201).json({
+//       message: "Investment created and awaiting approval",
+//       investment: newInvestment,
+//       pendingDeposit: user.pendingDeposit
+//     });
+//   } catch (err) {
+//     res.status(500).json({ message: "Server error", error: err.message });
+//   }
+// };
+
 // Create Investment
+// controllers/investmentController.js
 export const createInvestment = async (req, res) => {
   try {
     const { userId, plan, amount } = req.body;
@@ -46,23 +95,33 @@ export const createInvestment = async (req, res) => {
     const newInvestment = {
       plan,
       amount,
-      startDate: new Date(),
+      startDate: null, // not started yet
       endDate,
       dailyInterest: selectedPlan.dailyInterestPercent,
       totalReturn: (amount * selectedPlan.totalInterestPercent) / 100,
-      progress: 0
+      progress: 0,
+      status: "pending" // NEW
     };
 
+    // Add to investments
     user.investments.push(newInvestment);
+
+    // Add to pendingDeposit
+    user.pendingDeposit += amount;
+
     await user.save();
 
-    res
-      .status(201)
-      .json({ message: "Investment created", investment: newInvestment });
+    res.status(201).json({
+      message: "Investment created (pending approval)",
+      investment: newInvestment,
+      pendingDeposit: user.pendingDeposit
+    });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
 
 // Get all investments (with recalculated progress + earnings)
 export const getUserInvestments = async (req, res) => {
