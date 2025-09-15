@@ -89,12 +89,20 @@ export const login = async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token,
-      user: {
-        id: user._id,
+      data: {
+        _id: user._id,
         username: user.username,
         email: user.email,
-        kycStatus: user.kyc?.status || 'not submitted',
-        admin: user.admin || false,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        kyc: user.kyc || { status: 'not submitted' },
+        isAdmin: user.admin || false,
+        depositWallet: user.balance || 0,
+        interestWallet: user.interestWallet || 0,
+        referralWallet: user.referralWallet || 0,
+        investments: user.investments || [],
+        pendingDeposits: user.pendingDeposits || [],
+        // you can add more if your frontend needs them
       }
     });
 
@@ -102,6 +110,7 @@ export const login = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // 📌 Check if Email Exists
 export const checkEmail = async (req, res) => {
