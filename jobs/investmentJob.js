@@ -1,6 +1,7 @@
 // jobs/investmentJob.js
 import cron from "node-cron";
 import User from "../models/User.js";
+import Investment from "../models/Investments.js";
 
 // Utility: calculate investment progress + earnings
 const calculateInvestmentProgress = (investment) => {
@@ -20,56 +21,60 @@ const calculateInvestmentProgress = (investment) => {
   const dailyEarning = (investment.amount * investment.dailyInterest) / 100;
   const earnedSoFar = dailyEarning * elapsedDays;
 
-  return { progress, earnedSoFar, totalDays, elapsedDays };
+  // Total return at maturity
+  const totalReturn = dailyEarning * totalDays;
+
+  return { progress, earnedSoFar, totalDays, elapsedDays, totalReturn };
 };
 
-// Daily cron job
+
 export const startInvestmentJob = () => {
-  // Runs every midnight server time
-  cron.schedule("0 0 * * *", async () => {
-    console.log("🔄 Running daily investment update job...");
+  // Run every day at midnight
+  cron.schedule("* * * * *", async () => {
+    console.log("⏰ Running daily investment job...");
 
-    try {
-      const users = await User.find();
+    const investments = await Investment.find({
+      status: { $in: ["active", "pending"] }
+    });
 
-      for (let user of users) {
-        let totalInterest = 0;
+    for (let inv of investments) {
+      const now = new Date();
 
-        user.investments = user.investments.map((inv) => {
-          const { progress, earnedSoFar, totalDays, elapsedDays } =
-            calculateInvestmentProgress(inv);
-
-          inv.progress = progress;
-
-          if (elapsedDays >= totalDays && inv.status === "active") {
-            // ✅ Investment matured today
-            inv.status = "completed";
-            inv.progress = 100;
-
-            // Add full totalReturn to balance
-            user.balance += inv.totalReturn;
-
-            totalInterest += inv.totalReturn; // reflect in interestWallet too
-          } else if (inv.status === "active") {
-            // Still running, just add earnings so far
-            totalInterest += earnedSoFar;
-          } else if (inv.status === "completed") {
-            // Completed investments stay locked at totalReturn
-            totalInterest += inv.totalReturn;
-          }
-
-          return inv;
-        });
-
-        // Update interestWallet (reflects total earnings from all investments)
-        user.interestWallet = totalInterest;
-
-        await user.save();
+      // ✅ If still pending, check if it should activate
+      if (inv.status === "pending" && inv.startDate <= now) {
+        inv.status = "active";
       }
 
-      console.log("✅ Investment update job completed");
-    } catch (err) {
-      console.error("❌ Error in investment cron job:", err.message);
+      // ✅ If active, update progress + earnings
+      if (inv.status === "active") {
+        const elapsed = Math.floor(
+          (now - inv.startDate) / (1000 * 60 * 60 * 24)
+        );
+
+        // Progress calculation
+        if (inv.durationDays) {
+          inv.progress = Math.min((elapsed / inv.durationDays) * 100, 100);
+        }
+
+        // Earnings calculation
+        const dailyEarnings = (inv.amount * inv.dailyInterest) / 100;
+        inv.totalEarned = Math.min(
+          dailyEarnings * elapsed,
+          inv.totalExpected
+        );
+
+        // Complete investment if matured
+        if (inv.progress >= 100 || now >= inv.endDate) {
+          inv.status = "completed";
+          inv.progress = 100;
+          inv.totalEarned = inv.totalExpected;
+        }
+      }
+
+      await inv.save();
     }
+
+    console.log("✅ Investment job finished");
   });
 };
+
