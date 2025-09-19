@@ -30,51 +30,52 @@ const calculateInvestmentProgress = (investment) => {
 
 export const startInvestmentJob = () => {
   // Run every day at midnight
-  cron.schedule("* * * * *", async () => {
+  cron.schedule("0 0 * * *", async () => {
     console.log("⏰ Running daily investment job...");
 
-    const investments = await Investment.find({
-      status: { $in: ["active", "pending"] }
-    });
+    const investments = await Investment.find({ status: "active" }).populate("user");
 
     for (let inv of investments) {
       const now = new Date();
 
-      // ✅ If still pending, check if it should activate
-      if (inv.status === "pending" && inv.startDate <= now) {
-        inv.status = "active";
-      }
+      // Calculate duration
+      const totalDays = Math.ceil((inv.endDate - inv.startDate) / (1000 * 60 * 60 * 24));
+      const elapsedDays = Math.min(
+        Math.ceil((now - inv.startDate) / (1000 * 60 * 60 * 24)),
+        totalDays
+      );
 
-      // ✅ If active, update progress + earnings
-      if (inv.status === "active") {
-        const elapsed = Math.floor(
-          (now - inv.startDate) / (1000 * 60 * 60 * 24)
-        );
+      // Daily earnings
+      const dailyEarnings = (inv.amount * inv.dailyInterest) / 100;
 
-        // Progress calculation
-        if (inv.durationDays) {
-          inv.progress = Math.min((elapsed / inv.durationDays) * 100, 100);
-        }
+      // Calculate new totals
+      inv.progress = Math.min((elapsedDays / totalDays) * 100, 100);
+      inv.totalEarned = Math.min(dailyEarnings * elapsedDays, inv.totalExpected);
 
-        // Earnings calculation
-        const dailyEarnings = (inv.amount * inv.dailyInterest) / 100;
-        inv.totalEarned = Math.min(
-          dailyEarnings * elapsed,
-          inv.totalExpected
-        );
+      // ✅ Add today's earning into user.interestWallet
+      if (inv.user) {
+        const user = await User.findById(inv.user._id);
 
-        // Complete investment if matured
-        if (inv.progress >= 100 || now >= inv.endDate) {
-          inv.status = "completed";
-          inv.progress = 100;
-          inv.totalEarned = inv.totalExpected;
+        if (user) {
+          // Add only today’s earnings
+          user.interestWallet += dailyEarnings;
+
+          // If investment completed today, lock it
+          if (elapsedDays >= totalDays || now >= inv.endDate) {
+            inv.status = "completed";
+            inv.progress = 100;
+            inv.totalEarned = inv.totalExpected;
+          }
+
+          await user.save();
         }
       }
 
       await inv.save();
     }
 
-    console.log("✅ Investment job finished");
+    console.log("✅ Investment job finished & wallets updated");
   });
 };
+
 

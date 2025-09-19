@@ -9,6 +9,7 @@ import kycRoutes from './routes/kycRoutes.js';
 import { startInvestmentJob } from "./jobs/investmentJob.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
+import depositRoute from "./routes/depositRoute.js"
 dotenv.config();
 
 const app = express();
@@ -21,6 +22,7 @@ app.use('/api/kyc', kycRoutes);
 app.use("/api/investments", investmentRoutes);
 app.use("/", statsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin", depositRoute);
 
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
