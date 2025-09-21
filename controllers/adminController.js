@@ -6,28 +6,42 @@ import User from "../models/User.js";
  * @route POST /api/admin/confirm-deposit
  * @access Admin only
  */
+// controllers/depositController.js
 export const confirmDeposit = async (req, res) => {
   try {
-    const { userId, amount } = req.body;
+    const { userId, transactionId } = req.body;
 
-    if (!userId || !amount) {
-      return res.status(400).json({ message: "User ID and amount are required" });
+    if (!userId || !transactionId) {
+      return res.status(400).json({ message: "User ID and transaction ID are required" });
     }
 
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Find transaction by ID
+    const transaction = user.transactions.id(transactionId);
+    if (!transaction) {
+      return res.status(404).json({ message: "Transaction not found" });
     }
 
-    // Ensure user has enough pendingDeposit
+    if (transaction.status !== "pending") {
+      return res.status(400).json({ message: "Transaction already processed" });
+    }
+
+    const amount = transaction.amount;
+
+    // Check pendingDeposit
     if (user.pendingDeposit < amount) {
       return res.status(400).json({ message: "Insufficient pending deposit" });
     }
 
     // Update balances
     user.pendingDeposit -= amount;
-    user.balance += amount;
+    user.depositWallet += amount; // ✅ move into deposit wallet
     user.totalDeposit += amount;
+
+    // Update transaction status
+    transaction.status = "approved";
 
     await user.save();
 
@@ -35,13 +49,16 @@ export const confirmDeposit = async (req, res) => {
       message: "Deposit confirmed successfully",
       balance: user.balance,
       totalDeposit: user.totalDeposit,
-      pendingDeposit: user.pendingDeposit
+      pendingDeposit: user.pendingDeposit,
+      transaction,
     });
   } catch (error) {
     console.error("Confirm deposit error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
 
 // controllers/adminController.js
 export const approveInvestment = async (req, res) => {

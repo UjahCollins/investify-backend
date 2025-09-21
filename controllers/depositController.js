@@ -2,10 +2,12 @@
 import User from "../models/User.js";
 import multer from "multer";
 
-// User initiates a deposit
+
+
+// controllers/depositController.js
 export const depositFunds = async (req, res) => {
   try {
-    const { userId, amount } = req.body;
+    const { userId, amount, gateway } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: "Deposit amount must be greater than 0" });
@@ -14,27 +16,35 @@ export const depositFunds = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Add to pending deposit (awaiting admin approval)
+    // Add to pending deposit
     user.pendingDeposit += amount;
 
-    // (Optional) add a transaction record
-    user.transactions.push({
+    // Create transaction
+    const transaction = {
       type: "deposit",
       amount,
+      gateway: gateway || "N/A",
       date: new Date(),
-      status: "pending"
-    });
+      status: "pending",
+    };
 
+    user.transactions.push(transaction);
     await user.save();
+
+    // Return the transactionId (_id of subdoc)
+    const createdTx = user.transactions[user.transactions.length - 1];
 
     res.status(200).json({
       message: "Deposit created and awaiting admin approval",
-      pendingDeposit: user.pendingDeposit
+      pendingDeposit: user.pendingDeposit,
+      transactionId: createdTx._id,   // 👈 important
     });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {

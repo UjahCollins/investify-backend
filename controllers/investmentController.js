@@ -58,10 +58,11 @@ export const createInvestment = async (req, res) => {
       amount,
       startDate,
       endDate,
+      durationDays: selectedPlan.durationDays, // ✅ fix here
       dailyInterest: selectedPlan.dailyInterestPercent,
       totalReturn: (amount * selectedPlan.totalInterestPercent) / 100,
       progress: 0,
-      status: "active" // ✅ starts immediately
+      status: "active"
     };
 
     user.investments.push(newInvestment);
@@ -77,6 +78,7 @@ export const createInvestment = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 
 
