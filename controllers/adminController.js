@@ -30,14 +30,13 @@ export const confirmDeposit = async (req, res) => {
 
     const amount = transaction.amount;
 
-    // Check pendingDeposit
+    // ✅ Update balances (based on your schema)
     if (user.pendingDeposit < amount) {
       return res.status(400).json({ message: "Insufficient pending deposit" });
     }
 
-    // Update balances
     user.pendingDeposit -= amount;
-    user.depositWallet += amount; // ✅ move into deposit wallet
+    user.depositWallet += amount;
     user.totalDeposit += amount;
 
     // Update transaction status
@@ -47,7 +46,7 @@ export const confirmDeposit = async (req, res) => {
 
     res.status(200).json({
       message: "Deposit confirmed successfully",
-      balance: user.balance,
+      depositWallet: user.depositWallet,
       totalDeposit: user.totalDeposit,
       pendingDeposit: user.pendingDeposit,
       transaction,
@@ -58,9 +57,6 @@ export const confirmDeposit = async (req, res) => {
   }
 };
 
-
-
-// controllers/adminController.js
 export const approveInvestment = async (req, res) => {
   try {
     const { userId, investmentId } = req.body;
@@ -101,5 +97,7 @@ export const approveInvestment = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
 
 

@@ -10,6 +10,7 @@ import { startInvestmentJob } from "./jobs/investmentJob.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 import depositRoute from "./routes/depositRoute.js"
+import withdrawRoute from "./routes/withdrawRoute.js"
 dotenv.config();
 
 const app = express();
@@ -23,6 +24,7 @@ app.use("/api/investments", investmentRoutes);
 app.use("/", statsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/deposit", depositRoute);
+app.use("/api/withdraw", withdrawRoute)
 
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
